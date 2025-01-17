@@ -119,6 +119,27 @@ async function run() {
     })
 
     // Article related api
+    app.get('/allArticle/approved', async (req, res) => {
+      const filter = req.query.filter;
+      const search = req.query.search;
+      console.log(search);
+
+      const query = {
+      $and: [
+        { status: 'approved' }, // Match only approved articles
+        {
+          title: {
+            $regex: search,
+            $options: 'i', // Case-insensitive search
+          },
+        },
+      ],
+    };
+
+
+      const approvedData = await articleCollection.find(query).toArray();
+      res.send(approvedData)
+    })
     app.get('/publisher', async (req, res) => {
       const result = await publisherCollection.find().toArray();
 
