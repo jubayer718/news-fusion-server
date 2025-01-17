@@ -136,7 +136,7 @@ async function run() {
       ],
     };
 
-
+     if (filter){query.publisher = filter;}
       const approvedData = await articleCollection.find(query).toArray();
       res.send(approvedData)
     })
