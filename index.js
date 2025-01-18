@@ -2,6 +2,7 @@ const express = require('express');
 const app = express();
 const cors = require('cors');
 require('dotenv').config();
+const stripe=require("stripe")(process.env.STRIPE_SECRET_KEY)
 const port = process.env.PORT || 9000;
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
@@ -27,6 +28,7 @@ async function run() {
     const userCollection = client.db('newsfusionDB').collection('users');
     const publisherCollection = client.db('newsfusionDB').collection('publishers');
     const articleCollection = client.db('newsfusionDB').collection('articles');
+    const paymentCollection = client.db('newsfusionDB').collection('payments');
     // admin related API
     app.get('/articles', async (req, res) => {
       const result = await articleCollection.find().toArray();
@@ -122,6 +124,7 @@ async function run() {
     app.get('/allArticle/approved', async (req, res) => {
       const filter = req.query.filter;
       const search = req.query.search;
+      const tags = req.query.tags ? JSON.parse(req.query.tags) : [];
       console.log(search);
 
       const query = {
@@ -136,7 +139,14 @@ async function run() {
       ],
     };
 
-     if (filter){query.publisher = filter;}
+    if (tags.length > 0) {
+      query.$and.push({
+        'tags.value':{$in:tags}
+      })
+      }
+      
+
+      if (filter) { query.publisher = filter; }
       const approvedData = await articleCollection.find(query).toArray();
       res.send(approvedData)
     })
@@ -149,6 +159,27 @@ async function run() {
       const article = req.body;
       const result = await articleCollection.insertOne(article);
       res.send(result);
+    })
+
+
+    // payment
+    app.post('/create-payment-intent', async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        payment_method_types: ['card'],
+        currency:'usd'
+      })
+       res.send({
+    clientSecret: paymentIntent.client_secret,
+  });
+    })
+
+    app.post('/payments', async (req, res) => {
+       const payment = req.body;
+      const result = await paymentCollection.insertOne(payment);
+    res.send(result)
     })
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
