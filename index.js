@@ -2,7 +2,7 @@ const express = require('express');
 const app = express();
 const cors = require('cors');
 require('dotenv').config();
-const stripe=require("stripe")(process.env.STRIPE_SECRET_KEY)
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY)
 const port = process.env.PORT || 9000;
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
@@ -61,7 +61,7 @@ async function run() {
       const filter = { _id: new ObjectId(id) };
       const updatedDoc = {
         $set: {
-          status:'approved'
+          status: 'approved'
         }
       }
       const result = await articleCollection.updateOne(filter, updatedDoc);
@@ -72,7 +72,7 @@ async function run() {
       const filter = { _id: new ObjectId(id) };
       const updatedDoc = {
         $set: {
-          status:'declined'
+          status: 'declined'
         }
       }
       const result = await articleCollection.updateOne(filter, updatedDoc);
@@ -91,28 +91,41 @@ async function run() {
       const query = { _id: new ObjectId(id) };
       const updatedDoc = {
         $set: {
-          isPremium:true
+          isPremium: true
         }
       }
       const result = await articleCollection.updateOne(query, updatedDoc);
       res.send(result)
     })
 
-      app.get('/users/admin/:email', async (req, res) => {
-        const email = req.params.email;
-        const query = { email: email };
-        const user = await userCollection.findOne(query);
-        let admin = false;
-        if (user) {
-          admin = user?.role === 'admin'
-        }
-        res.send({ admin });
-      })
+    app.get('/users/admin/:email', async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      let admin = false;
+      if (user) {
+        admin = user?.role === 'admin'
+      }
+      res.send({ admin });
+    })
     // users related API
     app.post('/users', async (req, res) => {
       const user = req.body;
       const query = { email: user.email };
+     
+
       const userIsExist = await userCollection.findOne(query);
+
+       if (userIsExist.premiumTaken && Date.now() > userIsExist.premiumTaken) {
+         const updatedDoc = {
+       $set:{premiumTaken: null}
+     }
+     const expiryTime= await userCollection.updateOne(
+       query,
+       updatedDoc
+      );
+      // return res.status(200).json({ isPremium: false });
+    }
       if (userIsExist) {
         return res.send({ message: 'user already exist ', insertedId: null })
       }
@@ -120,6 +133,28 @@ async function run() {
       res.send(result);
     })
 
+    app.put('/subscribe/:email', async (req, res) => {
+
+      const email = req.params.email;
+      const {duration} = req.body;
+      const filter={email:email}
+      const durationMapping = {
+        '1-minute': 1 * 60 * 1000,
+        '5-days': 5 * 24 * 60 * 60 * 1000,
+        '10-days': 10 * 24 * 60 * 60 * 1000,
+      };
+      const expiryTime = Date.now() + (durationMapping[duration] || 0);
+      const updatedDoc = {
+        $set: {
+          premiumTaken:expiryTime
+        }
+      }
+      const result = await userCollection.updateOne(
+      filter ,
+       updatedDoc
+      );
+      res.send(result)
+    })
     // Article related api
     app.get('/allArticle/approved', async (req, res) => {
       const filter = req.query.filter;
@@ -128,23 +163,23 @@ async function run() {
       console.log(search);
 
       const query = {
-      $and: [
-        { status: 'approved' }, // Match only approved articles
-        {
-          title: {
-            $regex: search,
-            $options: 'i', // Case-insensitive search
+        $and: [
+          { status: 'approved' }, // Match only approved articles
+          {
+            title: {
+              $regex: search,
+              $options: 'i', // Case-insensitive search
+            },
           },
-        },
-      ],
-    };
+        ],
+      };
 
-    if (tags.length > 0) {
-      query.$and.push({
-        'tags.value':{$in:tags}
-      })
+      if (tags.length > 0) {
+        query.$and.push({
+          'tags.value': { $in: tags }
+        })
       }
-      
+
 
       if (filter) { query.publisher = filter; }
       const approvedData = await articleCollection.find(query).toArray();
@@ -169,17 +204,17 @@ async function run() {
       const paymentIntent = await stripe.paymentIntents.create({
         amount: amount,
         payment_method_types: ['card'],
-        currency:'usd'
+        currency: 'usd'
       })
-       res.send({
-    clientSecret: paymentIntent.client_secret,
-  });
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
     })
 
     app.post('/payments', async (req, res) => {
-       const payment = req.body;
+      const payment = req.body;
       const result = await paymentCollection.insertOne(payment);
-    res.send(result)
+      res.send(result)
     })
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
