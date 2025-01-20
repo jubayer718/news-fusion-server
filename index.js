@@ -117,6 +117,12 @@ async function run() {
       res.send(result)
     })
 
+    app.get('/myArticles/:email', async (req, res) => {
+      const email = req.params.email;
+      const query = { 'author.email':email };
+      const result = await articleCollection.find(query).toArray();
+      res.send(result)
+    })
 
 
 
