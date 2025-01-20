@@ -44,6 +44,8 @@ async function run() {
       const result = await userCollection.find().toArray();
       res.send(result)
     })
+
+    
     app.patch('/users/admin/:id', async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
@@ -109,6 +111,23 @@ async function run() {
       res.send({ admin });
     })
     // users related API
+
+    app.get('/premiumArticles', async (req, res) => {
+      const result = await articleCollection.find({isPremium:true}).toArray();
+      res.send(result)
+    })
+
+
+
+
+    app.put('/articles/view/:id',async(req,res)=>{
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+       
+      const updatedDoc = { $inc: { viewCount: 1 } }
+      const result = await articleCollection.updateOne(query, updatedDoc);
+      res.send(result)
+    })
     app.post('/users', async (req, res) => {
       const user = req.body;
       const query = { email: user.email };
@@ -133,6 +152,12 @@ async function run() {
       res.send(result);
     })
 
+    app.get('/articles/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await articleCollection.findOne(query);
+      res.send(result)
+    })
     app.put('/subscribe/:email', async (req, res) => {
 
       const email = req.params.email;
