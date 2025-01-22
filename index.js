@@ -69,11 +69,30 @@ async function run() {
       const result = await articleCollection.updateOne(filter, updatedDoc);
       res.send(result)
     })
-    app.patch('/status/decline/:id', async (req, res) => {
+    app.patch('/articleUpdate/:id', async (req, res) => {
       const id = req.params.id;
+      const article = req.body;
       const filter = { _id: new ObjectId(id) };
       const updatedDoc = {
         $set: {
+          title: article.title,
+          publisher: article.publisher,
+          description: article.description,
+          image: article.image,
+          tags: article.tags,
+          
+        }
+      }
+      const result = await articleCollection.updateOne(filter, updatedDoc);
+      res.send(result)
+    })
+    app.put('/status/decline/:id', async (req, res) => {
+      const id = req.params.id;
+      
+      const filter = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+
           status: 'declined'
         }
       }
