@@ -2,6 +2,7 @@ const express = require('express');
 const app = express();
 const cors = require('cors');
 require('dotenv').config();
+let jwt = require('jsonwebtoken');
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY)
 const port = process.env.PORT || 9000;
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
@@ -29,6 +30,38 @@ async function run() {
     const publisherCollection = client.db('newsfusionDB').collection('publishers');
     const articleCollection = client.db('newsfusionDB').collection('articles');
     const paymentCollection = client.db('newsfusionDB').collection('payments');
+
+
+
+
+    // jwt related API
+    app.post('/jwt', async (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
+      res.send({ token });
+    })
+
+    //middleware
+    const verifyToken = (req, res, next) => {
+      
+      console.log('insider verify token authorization', req.headers.authorization);
+      if (!req.headers.authorization) {
+        return res.status(401).send({ message: 'unauthorize access' });
+
+      }
+      const token = req.headers.authorization.split(' ')[1];
+      jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+        if (err) {
+         return res.status(401).send({ message: 'unauthorize access' });
+
+        }
+        req.decoded = decoded;
+          next()
+     })
+    
+      
+
+    }
     // admin related API
     app.get('/articles', async (req, res) => {
       const result = await articleCollection.find().toArray();
@@ -40,11 +73,18 @@ async function run() {
       const result = await publisherCollection.insertOne(publisherData);
       res.send(result);
     })
-    app.get('/users', async (req, res) => {
+
+    app.get('/users',verifyToken, async (req, res) => {
+
       const result = await userCollection.find().toArray();
       res.send(result)
     })
-
+    app.get('/users/:email', async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await userCollection.findOne(query);
+      res.send(result);
+    })
     
     app.patch('/users/admin/:id', async (req, res) => {
       const id = req.params.id;
@@ -245,8 +285,20 @@ async function run() {
 
       res.send(result);
     })
+
     app.post('/articles', async (req, res) => {
       const article = req.body;
+      // console.log(article);
+      const user = await userCollection.findOne({ email: article.author.email });
+       if (!user) {
+      return res.status(404).send({ message: 'User not found' });
+      }
+      if (!user.premiumTaken) {
+        const existingArticle = await articleCollection.findOne({ 'author.email': article.author.email });
+        if (existingArticle) {
+          return res.status(403).send({message:'Normal users can only add one article.'})
+        }
+      }
       const result = await articleCollection.insertOne(article);
       res.send(result);
     })
