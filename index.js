@@ -44,7 +44,7 @@ async function run() {
     //middleware
     const verifyToken = (req, res, next) => {
       
-      console.log('insider verify token authorization', req.headers.authorization);
+      // console.log('insider verify token authorization', req.headers.authorization);
       if (!req.headers.authorization) {
         return res.status(401).send({ message: 'unauthorize access' });
 
@@ -62,31 +62,52 @@ async function run() {
       
 
     }
+
+
+    const verifyAdmin = async(req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      const isAdmin = user?.role === 'admin';
+      if (!isAdmin) {
+        return res.status(403).send({ message: 'forbidden access' });
+      }
+      next();
+    }
     // admin related API
-    app.get('/articles', async (req, res) => {
+    app.get('/articles',verifyToken,verifyAdmin, async (req, res) => {
       const result = await articleCollection.find().toArray();
       res.send(result);
-      console.log(result);
+      // console.log(result);
     })
-    app.post('/publisher', async (req, res) => {
+    app.post('/publisher',verifyToken,verifyAdmin, async (req, res) => {
       const publisherData = req.body;
       const result = await publisherCollection.insertOne(publisherData);
       res.send(result);
     })
 
     app.get('/users',verifyToken, async (req, res) => {
-
-      const result = await userCollection.find().toArray();
+      const size = parseInt(req.query.size);
+      const page=parseInt(req.query.page)
+      console.log('pagination query',size,page);
+      const result = await userCollection.find().skip(page*size).limit(size).toArray();
       res.send(result)
     })
-    app.get('/users/:email', async (req, res) => {
+    app.get('/usersCount', async (req, res) => {
+      const count = await userCollection.estimatedDocumentCount();
+      res.send({ count });
+    })
+    app.get('/users/:email',verifyToken, async (req, res) => {
       const email = req.params.email;
+      // if (email !== req.decoded.email) {
+      //   return res.status(403).send({message:'forbidden access'})
+      // }
       const query = { email: email };
       const result = await userCollection.findOne(query);
       res.send(result);
     })
     
-    app.patch('/users/admin/:id', async (req, res) => {
+    app.patch('/users/admin/:id',verifyToken,verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const updatedDoc = {
@@ -98,7 +119,7 @@ async function run() {
       res.send(result)
     })
 
-    app.patch('/status/approve/:id', async (req, res) => {
+    app.patch('/status/approve/:id',verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const updatedDoc = {
@@ -109,7 +130,7 @@ async function run() {
       const result = await articleCollection.updateOne(filter, updatedDoc);
       res.send(result)
     })
-    app.patch('/articleUpdate/:id', async (req, res) => {
+    app.patch('/articleUpdate/:id',verifyToken,verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const article = req.body;
       const filter = { _id: new ObjectId(id) };
@@ -126,7 +147,7 @@ async function run() {
       const result = await articleCollection.updateOne(filter, updatedDoc);
       res.send(result)
     })
-    app.put('/status/decline/:id', async (req, res) => {
+    app.put('/status/decline/:id',verifyToken,verifyAdmin, async (req, res) => {
       const id = req.params.id;
       
       const filter = { _id: new ObjectId(id) };
@@ -140,14 +161,14 @@ async function run() {
       res.send(result)
     })
 
-    app.delete('/status/delete/:id', async (req, res) => {
+    app.delete('/status/delete/:id',verifyToken,verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await articleCollection.deleteOne(query);
       res.send(result);
     })
 
-    app.patch('/status/makePremium/:id', async (req, res) => {
+    app.patch('/status/makePremium/:id',verifyToken,verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const updatedDoc = {
@@ -159,8 +180,11 @@ async function run() {
       res.send(result)
     })
 
-    app.get('/users/admin/:email', async (req, res) => {
+    app.get('/users/admin/:email',verifyToken, async (req, res) => {
       const email = req.params.email;
+      if (email !== req.decoded.email) {
+        return res.status(403).send({message:'forbidden access'})
+      }
       const query = { email: email };
       const user = await userCollection.findOne(query);
       let admin = false;
@@ -171,26 +195,29 @@ async function run() {
     })
     // users related API
 
-    app.get('/premiumArticles', async (req, res) => {
+    app.get('/premiumArticles',verifyToken, async (req, res) => {
       const result = await articleCollection.find({isPremium:true}).toArray();
       res.send(result)
     })
 
-    app.get('/myArticles/:email', async (req, res) => {
+    app.get('/myArticles/:email',verifyToken, async (req, res) => {
       const email = req.params.email;
+      if (email !== req.decoded.email) {
+        return res.status(403).send({message:'forbidden access'})
+      }
       const query = { 'author.email':email };
       const result = await articleCollection.find(query).toArray();
       res.send(result)
     })
 
-    app.delete('/article/:id', async (req, res) => {
+    app.delete('/article/:id',verifyToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await articleCollection.deleteOne(query);
       res.send(result);
     })
 
-    app.put('/articles/view/:id',async(req,res)=>{
+    app.put('/articles/view/:id',verifyToken,async(req,res)=>{
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
        
@@ -205,16 +232,16 @@ async function run() {
 
       const userIsExist = await userCollection.findOne(query);
 
-       if (userIsExist.premiumTaken && Date.now() > userIsExist.premiumTaken) {
-         const updatedDoc = {
-       $set:{premiumTaken: null}
-     }
-     const expiryTime= await userCollection.updateOne(
-       query,
-       updatedDoc
-      );
-      // return res.status(200).json({ isPremium: false });
-    }
+    //    if (userIsExist.premiumTaken && Date.now() > userIsExist.premiumTaken) {
+    //      const updatedDoc = {
+    //    $set:{premiumTaken: null}
+    //  }
+    //  const expiryTime= await userCollection.updateOne(
+    //    query,
+    //    updatedDoc
+    //   );
+    //   // return res.status(200).json({ isPremium: false });
+    // }
       if (userIsExist) {
         return res.send({ message: 'user already exist ', insertedId: null })
       }
@@ -222,15 +249,19 @@ async function run() {
       res.send(result);
     })
 
-    app.get('/articles/:id', async (req, res) => {
+    app.get('/articles/:id',verifyToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await articleCollection.findOne(query);
       res.send(result)
     })
-    app.put('/subscribe/:email', async (req, res) => {
+    app.put('/subscribe/:email', verifyToken,async (req, res) => {
 
       const email = req.params.email;
+      if (email !== req.decoded.email) {
+        return res.status(403).send({message:'forbidden access'})
+      }
+
       const {duration} = req.body;
       const filter={email:email}
       const durationMapping = {
@@ -255,7 +286,7 @@ async function run() {
       const filter = req.query.filter;
       const search = req.query.search;
       const tags = req.query.tags ? JSON.parse(req.query.tags) : [];
-      console.log(search);
+      // console.log(search);
 
       const query = {
         $and: [
