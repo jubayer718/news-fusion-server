@@ -81,7 +81,7 @@ async function run() {
     app.get('/articles', verifyToken, verifyAdmin, async (req, res) => {
       const size = parseInt(req.query.size);
       const page = parseInt(req.query.page)
-      console.log(size,page);
+      // console.log(size,page);
       
       const result = await articleCollection.find().skip(page*size).limit(size).toArray();
       res.send(result);
@@ -91,13 +91,20 @@ async function run() {
       const result = await publisherCollection.insertOne(publisherData);
       res.send(result);
     })
-
+    app.get('/homeArticles', async (req, res) => {
+      const result = await articleCollection.find().toArray();
+      res.send(result);
+    })
     app.get('/users',verifyToken, async (req, res) => {
       const size = parseInt(req.query.size);
       const page=parseInt(req.query.page)
       // console.log('pagination query',size,page);
       const result = await userCollection.find().skip(page*size).limit(size).toArray();
       res.send(result)
+    })
+    app.get('/statistics', async (req, res) => {
+      const result = await userCollection.find().toArray();
+      res.send(result);
     })
     app.get('/usersCount', async (req, res) => {
       const count = await userCollection.estimatedDocumentCount();
@@ -159,7 +166,7 @@ async function run() {
     })
     app.put('/status/decline/:id',verifyToken,verifyAdmin, async (req, res) => {
       const id = req.params.id;
-      
+      const reason = req.body;
       const filter = { _id: new ObjectId(id) };
       const updatedDoc = {
         $set: {
@@ -202,7 +209,27 @@ async function run() {
       res.send({ admin });
     })
     // users related API
+    app.get('/users/update/:email', async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await userCollection.findOne(query);
+      res.send(result)
+    })
+    app.patch('/users/update/:email', async (req, res) => {
+      const email = req.params.email;
+      const updateInfo = req.body;
+      const query = { email: email };
+      const updatedDoc = {
+        $set: {
+          email: updateInfo?.email,
+          name: updateInfo?.name,
+          picPro:updateInfo?.picPro
+        }
 
+      }
+      const result = await userCollection.updateOne(query, updatedDoc);
+      res.send(result)
+    })
     app.get('/premiumArticles',verifyToken, async (req, res) => {
       const result = await articleCollection.find({isPremium:true}).toArray();
       res.send(result)
