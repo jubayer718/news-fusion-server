@@ -30,8 +30,11 @@ async function run() {
   try {
 
     const userCollection = client.db('newsfusionDB').collection('users');
+
     const publisherCollection = client.db('newsfusionDB').collection('publishers');
+
     const articleCollection = client.db('newsfusionDB').collection('articles');
+
     const paymentCollection = client.db('newsfusionDB').collection('payments');
 
 
@@ -260,6 +263,8 @@ async function run() {
       const result = await articleCollection.updateOne(query, updatedDoc);
       res.send(result)
     })
+
+
     app.post('/users', async (req, res) => {
       const user = req.body;
       const query = { email: user.email };
@@ -267,16 +272,16 @@ async function run() {
 
       const userIsExist = await userCollection.findOne(query);
 
-    //    if (userIsExist.premiumTaken && Date.now() > userIsExist.premiumTaken) {
-    //      const updatedDoc = {
-    //    $set:{premiumTaken: null}
-    //  }
-    //  const expiryTime= await userCollection.updateOne(
-    //    query,
-    //    updatedDoc
-    //   );
-    //   // return res.status(200).json({ isPremium: false });
-    // }
+       if (userIsExist.premiumTaken && Date.now() > userIsExist.premiumTaken) {
+         const updatedDoc = {
+       $set:{premiumTaken: null}
+     }
+     await userCollection.updateOne(
+       query,
+       updatedDoc
+      );
+      // return res.status(200).json({ isPremium: false });
+    }
       if (userIsExist) {
         return res.send({ message: 'user already exist ', insertedId: null })
       }
@@ -284,12 +289,22 @@ async function run() {
       res.send(result);
     })
 
-    app.get('/articles/:id',verifyToken, async (req, res) => {
+    app.get('/articles/:id', async (req, res) => {
       const id = req.params.id;
+     
       const query = { _id: new ObjectId(id) };
       const result = await articleCollection.findOne(query);
       res.send(result)
     })
+
+    app.get('/articles/update/:id', async (req, res) => {
+      const id = req.params.id;
+      //  console.log(id);
+      const query = { _id: new ObjectId(id) };
+      const result = await articleCollection.findOne(query);
+      res.send(result);
+    })
+
     app.put('/subscribe/:email', verifyToken,async (req, res) => {
 
       const email = req.params.email;
@@ -369,6 +384,20 @@ async function run() {
       res.send(result);
     })
 
+    app.get('/news/recent', async (req, res) => {
+    try {
+        const recentNews = await articleCollection.find().sort({ postedDate: -1 }).limit(10).toArray();
+        res.send(recentNews);
+    } catch (error) {
+        res.status(500).send({ message: "Error fetching recent news", error });
+    }
+    });
+    app.get('/recent/details/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await articleCollection.findOne(query);
+      res.send(result)
+    })
 
     // payment
     app.post('/create-payment-intent', async (req, res) => {
@@ -403,7 +432,7 @@ run().catch(console.dir);
 
 
 app.get('/', (req, res) => {
-  res.send('Hot new is coming')
+  res.send('Hot news is coming')
 })
 app.listen(port, () => {
   console.log('newsfusion is running on port:', port);
