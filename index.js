@@ -9,7 +9,7 @@ const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
 
 app.use(cors({
-  origin: ['http://localhost:5173','https://newfusion-f31a5.web.app','https://newfusion-f31a5.firebaseapp.com']
+  origin: ['http://localhost:5173','https://newfusion-f31a5.web.app','https://newfusion-f31a5.firebaseapp.com'],
   // credentials: true,
 }));
 app.use(express.json());
@@ -52,7 +52,7 @@ async function run() {
       
       // console.log('insider verify token authorization', req.headers.authorization);
       if (!req.headers.authorization) {
-        return res.status(401).send({ message: 'unauthorize access' });
+        return res.status(401).send({ message: 'unauthorize access' })
 
       }
       const token = req.headers.authorization.split(' ')[1];
@@ -169,12 +169,13 @@ async function run() {
     })
     app.put('/status/decline/:id',verifyToken,verifyAdmin, async (req, res) => {
       const id = req.params.id;
-      const reason = req.body;
+      const {reason} = req.body;
       const filter = { _id: new ObjectId(id) };
       const updatedDoc = {
         $set: {
 
-          status: 'declined'
+          status: 'declined',
+          reason: reason
         }
       }
       const result = await articleCollection.updateOne(filter, updatedDoc);
@@ -199,7 +200,12 @@ async function run() {
       const result = await articleCollection.updateOne(query, updatedDoc);
       res.send(result)
     })
-
+    app.get('/singleUsers/:email', async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await userCollection.findOne(query)
+      res.send(result)
+    })
     app.get('/users/admin/:email', async (req, res) => {
       const email = req.params.email;
       
@@ -272,7 +278,7 @@ async function run() {
 
       const userIsExist = await userCollection.findOne(query);
 
-       if (userIsExist.premiumTaken && Date.now() > userIsExist.premiumTaken) {
+       if (userIsExist?.premiumTaken && Date.now() > userIsExist?.premiumTaken) {
          const updatedDoc = {
        $set:{premiumTaken: null}
      }
@@ -288,7 +294,28 @@ async function run() {
       const result = await userCollection.insertOne(user);
       res.send(result);
     })
-
+    app.get('/singleAdmin/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await userCollection.findOne(query);
+      res.send(result)
+    })
+    app.patch('/updateAdminData/:email', async (req, res) => {
+      const email = req.params.email;
+      const data = req.body;
+      const query = { email: email };
+      const updatedDoc = {
+        $set: {
+          name: data?.name,
+          phone: data?.phone,
+          photo: data?.photo,
+          address: data?.address
+          
+        }
+      }
+      const result = await userCollection.updateOne(query, updatedDoc);
+      res.send(result)
+    })
     app.get('/articles/:id', async (req, res) => {
       const id = req.params.id;
      
