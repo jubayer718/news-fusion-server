@@ -304,37 +304,18 @@ async function run() {
       const email = req.params.email;
       const data = req.body;
       const query = { email: email };
-      const getJoinDate = await userCollection.findOne(query);
-      if (getJoinDate.joinedDate) {
-        const updatedDoc = {
-          $set: {
+      const updatedDoc = {
+        $set: {
           name: data?.name,
           phone: data?.phone,
           photo: data?.photo,
-          address: data?.address,        
-        }}
-        
-      const result = await userCollection.updateOne(query, updatedDoc);
-        res.send(result)
-        
-      } else {
-        
-        const updatedDoc = {
-          $set: {
-            name: data?.name,
-            phone: data?.phone,
-            photo: data?.photo,
-            address: data?.address,
-            joinedDate:data?.joinedDate
-           
-            
-          }
+          address: data?.address,
+          
+          
         }
-         
+      }
       const result = await userCollection.updateOne(query, updatedDoc);
       res.send(result)
-      }
-     
     })
     app.get('/articles/:id', async (req, res) => {
       const id = req.params.id;
